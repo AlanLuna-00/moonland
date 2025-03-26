@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  CONFIRMADO
+  PAGADO
+  FINALIZADO
+  CANCELADO
+}
+
+enum EstadoOrden {
+  PENDIENTE
+  EN_PROCESO
+  RECIBIDO
+  CANCELADO
+}
+
+enum EstadoActividad {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADO
+}
+
+enum EstadoTarea {
+  PENDIENTE
+  EN_PRODUCCION
+  COMPLETADA
+  CANCELADA
+}
+
+enum TipoMovimiento {
+  PAGO
+  NOTA_CREDITO
+}
+
+model Producto {
+  id           String           @id @default(uuid())
+  nombre       String
+  articulo     String
+  precioVenta  Float
+  precioCosto  Float
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  gastos       ProductoGasto[]
+  tareas       Tarea[]
+  itemsPedido  ItemPedido[]
+  deletedAt    DateTime?
+}
+
+model GastoMaterial {
+  id        String           @id @default(uuid())
+  material  Material         @relation(fields: [materialId], references: [id])
+  materialId String
+  productos ProductoGasto[]
+}
+
+model GastoManual {
+  id        String           @id @default(uuid())
+  tipo      String
+  valor     Float
+  productos ProductoGasto[]
+  actividades Actividad[]
+}
+
+model ProductoGasto {
+  id              String        @id @default(uuid())
+  producto        Producto      @relation(fields: [productoId], references: [id])
+  productoId      String
+  gastoMaterial   GastoMaterial? @relation(fields: [gastoMaterialId], references: [id])
+  gastoMaterialId String?
+  gastoManual     GastoManual?   @relation(fields: [gastoManualId], references: [id])
+  gastoManualId   String?
+  cantidad        Int?
+}
+
+
+model Cliente {
+  id        String         @id @default(uuid())
+  nombre    String
+  email     String
+  telefono  String
+  pedidos   Pedido[]
+  movimientos MovimientoFinanciero[]
+}
+
+model Pedido {
+  id         String        @id @default(uuid())
+  valorTotal Float
+  estado     EstadoPedido
+  cliente    Cliente?      @relation(fields: [clienteId], references: [id])
+  clienteId  String?
+  items      ItemPedido[]
+}
+
+model ItemPedido {
+  id             String     @id @default(uuid())
+  pedido         Pedido     @relation(fields: [pedidoId], references: [id])
+  pedidoId       String
+  producto       Producto   @relation(fields: [productoId], references: [id])
+  productoId     String
+  cantidad       Int
+  descontarStock Boolean
+}
+
+model Encargado {
+  id          String       @id @default(uuid())
+  nombre      String
+  actividades Actividad[]
+}
+
+model Material {
+  id            String           @id @default(uuid())
+  nombre        String
+  proveedor     Proveedor?       @relation(fields: [proveedorId], references: [id])
+  proveedorId   String?
+  valor         Float
+  ordenItems    ItemOrden[]
+  gastoMaterial GastoMaterial[]
+}
+
+model Proveedor {
+  id         String      @id @default(uuid())
+  nombre     String
+  contacto   String
+  materiales Material[]
+  ordenes    Orden[]
+}
+
+model Orden {
+  id         String       @id @default(uuid())
+  valorTotal Float
+  estado     EstadoOrden
+  proveedor  Proveedor    @relation(fields: [proveedorId], references: [id])
+  proveedorId String
+  items      ItemOrden[]
+}
+
+model ItemOrden {
+  id         String     @id @default(uuid())
+  orden      Orden      @relation(fields: [ordenId], references: [id])
+  ordenId    String
+  material   Material   @relation(fields: [materialId], references: [id])
+  materialId String
+  cantidad   Int
+  valor      Float
+}
+
+model MovimientoFinanciero {
+  id             String         @id @default(uuid())
+  cliente        Cliente        @relation(fields: [clienteId], references: [id])
+  clienteId      String
+  tipo           TipoMovimiento
+  medioDePago    MedioDePago?  @relation(fields: [medioDePagoId], references: [id])
+  medioDePagoId  String?
+  motivo         String?
+  valor          Float
+}
+
+model MedioDePago {
+  id           String                  @id @default(uuid())
+  nombre       String
+  movimientos  MovimientoFinanciero[]
+}
+
+model Color {
+  id     String   @id @default(uuid())
+  nombre String   @unique
+  tareas Tarea[]
+}
+
+model Tarea {
+  id             String      @id @default(uuid())
+  producto       Producto    @relation(fields: [productoId], references: [id])
+  productoId     String
+  color          Color?      @relation(fields: [colorId], references: [id])
+  colorId        String?
+  observaciones  String?
+  cantidadPares  Int         @default(24)
+  estado         EstadoTarea @default(PENDIENTE)
+  actividades    Actividad[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+
+model Actividad {
+  id               String         @id @default(uuid())
+  tarea            Tarea          @relation(fields: [tareaId], references: [id])
+  tareaId          String
+  encargado        Encargado?     @relation(fields: [encargadoId], references: [id])
+  encargadoId      String?
+  estado           EstadoActividad @default(PENDIENTE)
+  gastoManual      GastoManual?   @relation(fields: [gastoManualId], references: [id])
+  gastoManualId    String?
+  cantidadAsignada Int?
+}
